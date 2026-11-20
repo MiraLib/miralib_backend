@@ -4,6 +4,7 @@ import java.time.LocalDate;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
@@ -30,5 +31,10 @@ public class Book {
     private int stock;
     @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate fechaDeEntrega;
+    // URL de la portada del libro
+    @Column(length = 1000)
+    private String imagen;
+    // true = el libro aún no está disponible y se muestra en "Próximamente" (null = false)
+    private Boolean proximamente;
 
 }
