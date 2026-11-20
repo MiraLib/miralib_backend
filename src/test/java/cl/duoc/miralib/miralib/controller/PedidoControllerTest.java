@@ -3,6 +3,7 @@ package cl.duoc.miralib.miralib.controller;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -48,6 +49,57 @@ public class PedidoControllerTest {
                 .andExpect(jsonPath("$[0].estado").value("Vigente"))
                 .andExpect(jsonPath("$[0].usuario.nombre").value("Exequiel"))
                 .andExpect(jsonPath("$[0].usuario.contrasena").doesNotExist());
+    }
+
+    @Test
+    public void testCrearPedidoOk() throws Exception {
+        Pedido pedido = new Pedido(11, usuario, libro, LocalDate.of(2026, 11, 20), LocalDate.of(2026, 12, 4), Pedido.VIGENTE);
+        when(pedidoService.crearPedido(1, 2)).thenReturn(pedido);
+
+        mockMvc.perform(post("/api/v1/pedidos/add")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"usuarioId\":1,\"libroId\":2}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(11))
+                .andExpect(jsonPath("$.libro.stock").value(3));
+    }
+
+    @Test
+    public void testDevolverPedido() throws Exception {
+        Pedido devuelto = new Pedido(10, usuario, libro, LocalDate.of(2026, 11, 20), LocalDate.of(2026, 12, 4), Pedido.DEVUELTO);
+        when(pedidoService.devolverPedido(10)).thenReturn(devuelto);
+
+        mockMvc.perform(put("/api/v1/pedidos/devolver/10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("Devuelto"));
+    }
+
+    @Test
+    public void testDevolverPedidoYaDevueltoDevuelve400() throws Exception {
+        when(pedidoService.devolverPedido(10)).thenThrow(new RuntimeException("Este pedido ya fue devuelto"));
+
+        mockMvc.perform(put("/api/v1/pedidos/devolver/10"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("Este pedido ya fue devuelto"));
+    }
+
+    @Test
+    public void testExtenderPedido() throws Exception {
+        Pedido extendido = new Pedido(10, usuario, libro, LocalDate.of(2026, 11, 20), LocalDate.of(2026, 12, 11), Pedido.VIGENTE);
+        when(pedidoService.extenderPedido(10)).thenReturn(extendido);
+
+        mockMvc.perform(put("/api/v1/pedidos/extender/10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.fechaDevolucion").value("2026-12-11"));
+    }
+
+    @Test
+    public void testExtenderPedidoInexistenteDevuelve400() throws Exception {
+        when(pedidoService.extenderPedido(99)).thenThrow(new RuntimeException("Pedido no encontrado"));
+
+        mockMvc.perform(put("/api/v1/pedidos/extender/99"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("Pedido no encontrado"));
     }
 
     @Test

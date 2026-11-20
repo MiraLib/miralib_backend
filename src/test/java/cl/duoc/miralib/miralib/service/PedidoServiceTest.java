@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
@@ -102,6 +103,45 @@ public class PedidoServiceTest {
 
         assertEquals(devolucion.plusDays(7), extendido.getFechaDevolucion());
         assertEquals(Pedido.VIGENTE, extendido.getEstado());
+    }
+
+    @Test
+    public void alListarMarcaComoVencidoUnPedidoVigenteFueraDePlazo() {
+        Pedido vencido = new Pedido(10, usuario, libro(3, false), LocalDate.now().minusDays(20), LocalDate.now().minusDays(1), Pedido.VIGENTE);
+        Pedido alDia = new Pedido(11, usuario, libro(3, false), LocalDate.now(), LocalDate.now().plusDays(14), Pedido.VIGENTE);
+        Pedido devuelto = new Pedido(12, usuario, libro(3, false), LocalDate.now().minusDays(30), LocalDate.now().minusDays(16), Pedido.DEVUELTO);
+        when(pedidoRepository.findByUsuarioIdOrderByIdDesc(1)).thenReturn(List.of(vencido, alDia, devuelto));
+
+        List<Pedido> pedidos = pedidoService.getPedidosDeUsuario(1);
+
+        assertEquals(Pedido.VENCIDO, pedidos.get(0).getEstado());
+        assertEquals(Pedido.VIGENTE, pedidos.get(1).getEstado());
+        assertEquals(Pedido.DEVUELTO, pedidos.get(2).getEstado()); // el historial no cambia
+        verify(pedidoRepository).save(vencido);
+        verify(pedidoRepository, never()).save(alDia);
+    }
+
+    @Test
+    public void noSePuedePedirConUnUsuarioInexistente() {
+        when(userRepository.findById(99)).thenReturn(Optional.empty());
+
+        RuntimeException e = assertThrows(RuntimeException.class, () -> pedidoService.crearPedido(99, 2));
+        assertEquals("Usuario no encontrado", e.getMessage());
+    }
+
+    @Test
+    public void noSePuedePedirUnLibroInexistente() {
+        when(userRepository.findById(1)).thenReturn(Optional.of(usuario));
+        when(bookService.findById(99)).thenReturn(null);
+
+        RuntimeException e = assertThrows(RuntimeException.class, () -> pedidoService.crearPedido(1, 99));
+        assertEquals("Libro no encontrado", e.getMessage());
+    }
+
+    @Test
+    public void noSePuedeExtenderUnPedidoInexistente() {
+        when(pedidoRepository.findById(99)).thenReturn(Optional.empty());
+        assertThrows(RuntimeException.class, () -> pedidoService.extenderPedido(99));
     }
 
     @Test

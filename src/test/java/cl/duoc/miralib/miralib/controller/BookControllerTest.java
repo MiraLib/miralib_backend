@@ -1,7 +1,13 @@
 package cl.duoc.miralib.miralib.controller;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -10,6 +16,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -46,6 +53,65 @@ public class BookControllerTest {
                 .andExpect(jsonPath("$[0].imagen").value("https://ejemplo.cl/portadas/la-metamorfosis.jpg"))
                 .andExpect(jsonPath("$[0].proximamente").value(false))
                 .andExpect(jsonPath("$[1].proximamente").value(true));
+    }
+
+    private Book cleanCode(int stock) {
+        return new Book(2, "MiraLib", "Clean Code", "Robert C. Martin", "Programación", "x", stock,
+                LocalDate.of(2026, 12, 31), "https://portadas.test/clean-code.jpg", false);
+    }
+
+    @Test
+    public void testSaveBook() throws Exception {
+        when(bookService.saveBook(any(Book.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        mockMvc.perform(post("/api/v1/books/add")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"id\":0,\"nombreLibro\":\"Clean Code\",\"stock\":4,\"imagen\":\"https://portadas.test/cc.jpg\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nombreLibro").value("Clean Code"))
+                .andExpect(jsonPath("$.imagen").value("https://portadas.test/cc.jpg"));
+    }
+
+    @Test
+    public void testFindById() throws Exception {
+        when(bookService.findById(2)).thenReturn(cleanCode(4));
+
+        mockMvc.perform(get("/api/v1/books/id").param("id", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.stock").value(4));
+    }
+
+    @Test
+    public void testSendBookOk() throws Exception {
+        when(bookService.sendBook(2)).thenReturn(cleanCode(3));
+
+        mockMvc.perform(put("/api/v1/books/send/2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.stock").value(3));
+    }
+
+    @Test
+    public void testSendBookSinStockDevuelve400() throws Exception {
+        when(bookService.sendBook(2)).thenThrow(new RuntimeException("No se puede dar el libro: stock agotado"));
+
+        mockMvc.perform(put("/api/v1/books/send/2"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("No se puede dar el libro: stock agotado"));
+    }
+
+    @Test
+    public void testDeleteBookOk() throws Exception {
+        mockMvc.perform(delete("/api/v1/books/delete/2"))
+                .andExpect(status().isOk())
+                .andExpect(content().string("Libro eliminado correctamente"));
+    }
+
+    @Test
+    public void testDeleteBookInexistenteDevuelve404() throws Exception {
+        doThrow(new RuntimeException("No se encontró el libro con ID: 99")).when(bookService).deleteBook(99);
+
+        mockMvc.perform(delete("/api/v1/books/delete/99"))
+                .andExpect(status().isNotFound());
     }
 
 }
