@@ -38,6 +38,15 @@ public class BookService {
         return bookRepository.save(book);
     }
 
+    // Inverso de sendBook: el libro vuelve a la biblioteca (+1 stock)
+    public Book returnBook(int id) {
+        Book book = bookRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Libro no encontrado"));
+
+        book.setStock(book.getStock() + 1);
+        return bookRepository.save(book);
+    }
+
     public void deleteBook(int id) {
     if (!bookRepository.existsById(id)) {
         throw new RuntimeException("No se encontró el libro con ID: " + id);
